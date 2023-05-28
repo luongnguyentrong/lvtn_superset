@@ -1,0 +1,12 @@
+version: "1.0"
+
+services:
+  superset:
+    container_name: superset
+    image: superset_local_test
+    volumes:
+      - ${PWD}/keycloak_security_manager.py:/app/pythonpath/keycloak_security_manager.py
+      - ${PWD}/superset_config.py:/app/pythonpath/superset_config.py
+
+    ports:
+      - 8080:8088

@@ -10,6 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
@@ -50,7 +51,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ steps.extract_unit_name.outputs.UNIT_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.extract_unit_name.outputs.UNIT_NAME }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4

@@ -15,3 +15,6 @@ services:
 
   superset:
     image: ducluongvn/superset_pck
+
+  superset_pdt:
+    image: ghcr.io/luongnguyentrong/lvtn_superset/pdt:master

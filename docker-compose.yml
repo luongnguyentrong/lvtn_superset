@@ -1,20 +1,14 @@
-version: "1.0"
-
 services:
   nginx:
+    depends_on:
+      - superset
     image: nginx:mainline-alpine-slim
-    volumes:
-      - ${PWD}/nginx/:/etc/nginx/
-      - ${PWD}/letsencrypt/certs/:/etc/letsencrypt
     ports:
       - 443:443
       - 80:80
-
-    depends_on:
-      - superset
-
+    volumes:
+      - ${PWD}/nginx/:/etc/nginx/
+      - ${PWD}/letsencrypt/certs/:/etc/letsencrypt
   superset:
     image: ducluongvn/superset_pck
-
-  superset_pdt:
-    image: ghcr.io/luongnguyentrong/lvtn_superset/pdt:master
+version: '1.0'

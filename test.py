@@ -25,5 +25,3 @@ unit_name = input('Enter the unit name: ')
 
 # Add the new service to the Docker Compose file
 add_service_to_docker_compose(unit_name)
-
-print(f'Service "superset_{unit_name}" has been added to the Docker Compose file.')

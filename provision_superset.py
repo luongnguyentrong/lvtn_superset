@@ -152,7 +152,7 @@ def add_service_to_docker_compose(unit_name):
     # Create a new service
     new_service = {
         f'superset_{unit_name}': {
-            'image': f'ghcr.io/luongnguyentrong/lvtn_superset/{unit_name}'
+            'image': f'ghcr.io/luongnguyentrong/lvtn_superset/{unit_name}:master'
         }
     }
 

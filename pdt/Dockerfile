@@ -11,10 +11,7 @@ ENV DATABASE_DB=superset_pdt
 
 USER superset
 
-COPY client_secret.json ./pythonpath/
-
-RUN superset db upgrade
-RUN superset init
+COPY client_secret.json ./pythonpath
 
 EXPOSE 8088
     

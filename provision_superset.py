@@ -6,6 +6,7 @@ import string
 import random
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from nginx import create_nginx_config
+from dotenv import load_dotenv
 import yaml
 
 def generate_random_password(length=10):
@@ -28,14 +29,28 @@ def create_folder(unit_name: str):
         print(f"Error occurred while creating folder: {str(e)}")
 
 def create_secret_json(unit_name: str):
+    # create a database connection to keycloak
+    keycloak_conn = create_db_conn("keycloak")
+
+    cursor = keycloak_conn.cursor()
+
+    # get client secret from database
+    cursor.execute(f'''
+    select client.client_id,client.secret from client, realm 
+        where client.client_id = 'superset' 
+            and client.realm_id = realm.id 
+            and realm.name = '{unit_name}';''')
+
+    client_id, client_secret = cursor.fetchone()
+
     data = {
         "web": {
             "issuer": f"https://sso.ducluong.monster/realms/{unit_name}",
             "auth_uri": f"https://sso.ducluong.monster/realms/{unit_name}/protocol/openid-connect/auth",
-            "client_id": "superset",
-            "client_secret": "QyRIJn5UWSpurK9e4hU6Sv6uamRK5PpY",
+            "client_id": client_id,
+            "client_secret": client_secret,
             "redirect_uris": [
-                f"https://{unit_name}.superset.ducluong.monster"
+                f"https://{unit_name}.superset.ducluong.monster/*"
             ],
             "userinfo_uri": f"https://sso.ducluong.monster/realms/{unit_name}/protocol/openid-connect/userinfo",
             "token_uri": f"https://sso.ducluong.monster/realms/{unit_name}/protocol/openid-connect/token",
@@ -50,67 +65,66 @@ def create_secret_json(unit_name: str):
     with open(file_path, "w") as json_file:
         json.dump(data, json_file)
 
-    print("JSON file client_secret created successfully.")
+    # close connection
+    keycloak_conn.close()
 
-def create_datbase_resource(unit_name: str):
-    host = "159.223.66.111"
-    port = "5432"
-    database = "postgres"
-    user = "api_server"
-    password = "634zgwxwsjvt5179ximsmkhmg2uxnq5q"
+    print("JSON file client_secret.json created successfully.")
 
-    # Connect to PostgreSQL
-    conn = psycopg2.connect(
-        host=host,
-        port=port,
-        database=database,
-        user=user,
-        password=password
-    ) 
-
-    conn.autocommit = True
-    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT);
-
+def create_datbase_resource(unit_name: str, conn):
     # Create a cursor object
-    cursor = conn.cursor()
+    with conn.cursor() as cursor:
+        db_name = f"superset_{unit_name}"
 
-    # SQL query to create a database
-    db_name = f"superset_{unit_name}"
-    create_db_query = f"CREATE DATABASE {db_name}"
+        # Check if the database exists
+        cursor.execute(f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'")
+        database_exists = bool(cursor.fetchone())
 
-    # Execute the SQL query
-    cursor.execute(create_db_query)
+        if not database_exists:
+            # SQL query to create a database
+            create_db_query = f"CREATE DATABASE {db_name}"
 
-    # Create the username and password for the superset
-    superset_username = f"superset_user_{unit_name}"
-    superset_password = generate_random_password(32)
+            # Execute the SQL query
+            cursor.execute(create_db_query)
 
-    # SQL queries to create the user and grant privileges
-    create_user_query = f"CREATE USER {superset_username} WITH PASSWORD '{superset_password}';"
-    grant_privileges_query = f"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {superset_username};"
+            # Create the username and password for the superset
+            superset_username = f"superset_user_{unit_name}"
+            superset_password = generate_random_password(32)
 
-    # Execute the SQL query
-    cursor.execute(create_user_query)
-    cursor.execute(grant_privileges_query)
-    
-    with psycopg2.connect(
-        host=host,
-        port=port,
-        database=db_name,
-        user=user,
-        password=password
-    ) as inner_conn:
-        grant_schema_access = f"GRANT ALL PRIVILEGES ON SCHEMA public TO {superset_username};"
+            # Check if the user exists
+            cursor.execute(f"SELECT 1 FROM pg_roles WHERE rolname='{superset_username}'")
+            user_exists = bool(cursor.fetchone())
 
-        with inner_conn.cursor() as inner_cursor:
-            inner_cursor.execute(grant_schema_access)
+            if not user_exists:
+                # SQL queries to create the user and grant privileges
+                create_user_query = f"CREATE USER {superset_username} WITH PASSWORD '{superset_password}';"
+                grant_privileges_query = f"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {superset_username};"
 
-    cursor.close()
-    conn.close()
+                # Execute the SQL query
+                cursor.execute(create_user_query)
+                cursor.execute(grant_privileges_query)
+                
+                # Create a connection to new superset database
+                superset_conn = create_db_conn(db_name=db_name) 
 
-    print(f"Database '{db_name}' created successfully.")
+                # Grant all priviledges on schema public
+                grant_schema_access = f"GRANT ALL PRIVILEGES ON SCHEMA public TO {superset_username};"
 
-    return db_name, superset_username, superset_password
+                with superset_conn.cursor() as inner_cursor:
+                    inner_cursor.execute(grant_schema_access)
+
+                # close connection
+                superset_conn.close()
+                print(f"Database '{db_name}' created successfully.")
+
+                return db_name, superset_username, superset_password
+
+            else:
+                raise Exception(f"User {superset_username} has existed!")
+        
+        else:
+            raise Exception(f"Database {db_name} has existed!") 
+
+
 
 def create_dockerfile(unit_name: str, dbname: str, username: str, password: str):
     dockerfile = f'''FROM ducluongvn/superset_extended
@@ -163,33 +177,55 @@ def add_service_to_docker_compose(unit_name):
     with open('docker-compose.yml', 'w') as file:
         yaml.dump(docker_compose, file)
 
+def create_db_conn(db_name: string):
+    # Connect to PostgreSQL
+    conn = psycopg2.connect(dsn=os.getenv("POSTGRES_DSN") + "/" + db_name) 
+
+    conn.autocommit = True
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT);
+
+    return conn
+
 def main():
+    # Load local env variables
+    load_dotenv()
+
     # Check if the folder name is provided as a command-line argument
     if len(sys.argv) < 2:
         print("Please provide a unit name as a command-line argument.")
         sys.exit(1)
 
-    # Get the folder name from the command-line argument
-    unit_name = sys.argv[1]
+    try:
+        # Get the folder name from the command-line argument
+        unit_name = sys.argv[1]
 
-    # Create the unit folder
-    create_folder(unit_name=unit_name)
+        # create a connection to metadata database
+        db_conn = create_db_conn("metadata")
 
-    # create json secret file
-    create_secret_json(unit_name=unit_name)
+        # Create the unit folder
+        create_folder(unit_name=unit_name)
 
-    # create database resource
-    dbname, superset_username, superset_password = create_datbase_resource(unit_name=unit_name)
+        # create json secret file in unit folder
+        create_secret_json(unit_name=unit_name)
 
-    # create docker file
-    create_dockerfile(unit_name=unit_name, dbname=dbname, username=superset_username, password=superset_password)
+        # create database resource
+        dbname, superset_username, superset_password = create_datbase_resource(unit_name=unit_name, conn=db_conn)
 
-    # add new superset service to docker compose
-    add_service_to_docker_compose(unit_name=unit_name)
+        # create docker file
+        create_dockerfile(unit_name=unit_name, dbname=dbname, username=superset_username, password=superset_password)
 
-    # create nginx server block
-    create_nginx_config(unit_name=unit_name)
+        # add new superset service to docker compose
+        add_service_to_docker_compose(unit_name=unit_name)
 
-    print("Success!")
+        # create nginx server block
+        create_nginx_config(unit_name=unit_name)
+
+        # close db conn
+        db_conn.close()
+
+        print("Success!")
+
+    except Exception as e:
+        print("Provision failed: ", e)
 
 main()

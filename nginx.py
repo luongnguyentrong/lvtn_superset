@@ -30,5 +30,3 @@ server {{
         file.write(nginx_config)
 
     print(f'Nginx configuration file "{filename}" has been created in nginx/conf.d directory.')
-
-create_nginx_config("ducluong")

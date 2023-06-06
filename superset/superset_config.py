@@ -81,6 +81,7 @@ AUTH_USER_REGISTRATION = False
 
 # REDIS_HOST = get_env_variable("REDIS_HOST")
 # REDIS_PORT = get_env_variable("REDIS_PORT")
+# REDIS_PASSWORD = get_env_variable("REDIS_PASSWORD")
 # REDIS_CELERY_DB = get_env_variable("REDIS_CELERY_DB", "0")
 # REDIS_RESULTS_DB = get_env_variable("REDIS_RESULTS_DB", "1")
 
@@ -92,15 +93,22 @@ AUTH_USER_REGISTRATION = False
 #     "CACHE_KEY_PREFIX": "superset_",
 #     "CACHE_REDIS_HOST": REDIS_HOST,
 #     "CACHE_REDIS_PORT": REDIS_PORT,
+#     "CACHE_REDIS_PASSWORD": REDIS_PASSWORD,
 #     "CACHE_REDIS_DB": REDIS_RESULTS_DB,
 # }
 # DATA_CACHE_CONFIG = CACHE_CONFIG
 
+# FILTER_STATE_CACHE_CONFIG = {
+#     'CACHE_TYPE': 'RedisCache',
+#     'CACHE_DEFAULT_TIMEOUT': 86400,
+#     'CACHE_KEY_PREFIX': 'superset_filter_cache',
+# }
+
 
 # class CeleryConfig(object):
-#     broker_url = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
+#     broker_url = f"redis://{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
 #     imports = ("superset.sql_lab",)
-#     result_backend = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_RESULTS_DB}"
+#     result_backend = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_RESULTS_DB}"
 #     worker_prefetch_multiplier = 1
 #     task_acks_late = False
 #     beat_schedule = {

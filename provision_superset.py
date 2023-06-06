@@ -142,9 +142,6 @@ USER superset
 
 COPY client_secret.json ./pythonpath/
 
-RUN superset db upgrade
-RUN superset init
-
 EXPOSE 8088
     '''
 

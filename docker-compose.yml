@@ -12,8 +12,4 @@ services:
     - ${PWD}/letsencrypt/certs/:/etc/letsencrypt
   superset:
     image: ducluongvn/superset_pck
-  superset_pdt:
-    image: ghcr.io/luongnguyentrong/lvtn_superset/pdt:master
-  superset_svk:
-    image: ghcr.io/luongnguyentrong/lvtn_superset/svk:master
 version: '1.0'
